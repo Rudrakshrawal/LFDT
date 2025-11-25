@@ -1,0 +1,86 @@
+# networks:
+#     docker_test:
+#         external: true
+
+# services:
+#     nrf-fabric.example.com:
+#         build: .
+#         container_name: nrf-fabric.org1.example.com
+#         hostname: nrf-fabric.org1.example.com
+#         volumes:
+#             - ./crypto:/crypto
+#         env_file:
+#             - chaincode.env
+#         networks:
+#             docker_test:
+#         expose:
+#             - 9999
+
+#     nrf-fabric.org2.example.com:
+#         build: .
+#         container_name: nrf-fabric.org2.example.com
+#         hostname: nrf-fabric.org2.example.com
+#         volumes:
+#             - ./crypto:/crypto
+#         env_file:
+#             - chaincode.env
+#         networks:
+#             docker_test:
+#         expose:
+#             - 9999
+
+
+
+
+version: '3.7'
+
+networks:
+  fabric_test:
+    external: true
+    name: fabric_test
+
+services:
+  nrf-chaincode.org1.example.com:
+    build: .
+    container_name: nrf-chaincode.org1.example.com
+    hostname: nrf-chaincode.org1.example.com
+    image: nrf-chaincode:1.0
+    volumes:
+      - ./nrf.key:/root/nrf.key:ro #private key
+      - ./nrf.pem:/root/nrf.pem:ro #Cert
+    #   - ./nrf_public.key:/root/nrf_public.key:ro
+    env_file:
+      - chaincode1.env
+    networks:
+      fabric_test:
+        aliases:
+          - nrf-chaincode
+    ports:
+      - "9999:9999"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nrf-chaincode.org2.example.com:
+    build: .
+    container_name: nrf-chaincode.org2.example.com
+    hostname: nrf-chaincode.org2.example.com
+    image: nrf-chaincode:1.0
+    volumes:
+      - ./nrf.key:/root/nrf.key:ro #private key
+      - ./nrf.pem:/root/nrf.pem:ro #Cert
+    env_file:
+      - chaincode2.env
+    networks:
+      fabric_test:
+    ports:
+      - "9998:9999"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
