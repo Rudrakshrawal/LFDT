@@ -1,0 +1,203 @@
+// package server
+
+// import (
+// 	"encoding/json"
+// 	"fmt"
+// 	"net/http"
+// 	"io"
+// )
+
+// type ChaincodeClient interface {
+// 	InvokeChaincode(function string, args []string) (string, error)
+// 	QueryChaincode(function string, args []string) (string, error)
+// }
+
+// type HTTPHandlers struct {
+// 	client ChaincodeClient
+// }
+
+// func NewHTTPHandlers(client ChaincodeClient) *HTTPHandlers {
+// 	return &HTTPHandlers{client: client}
+// }
+
+// // HandleNFOperations handles NF registration, update, and deletion
+// func (h *HTTPHandlers) HandleNFOperations(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodPost {
+// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// 		return
+// 	}
+
+// 	body, err := io.ReadAll(r.Body)
+// 	if err != nil {
+// 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+// 		return
+// 	}
+// 	defer r.Body.Close()
+
+// 	var payload map[string]interface{}
+// 	err = json.Unmarshal(body, &payload)
+// 	if err != nil {
+// 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	operation, ok := payload["operation"].(string)
+// 	if !ok {
+// 		http.Error(w, "Missing operation field", http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	var result string
+// 	switch operation {
+// 	case "register":
+// 		nfProfileJSON, _ := json.Marshal(payload["nfProfile"])
+// 		result, err = h.client.InvokeChaincode("RegisterNF", []string{string(nfProfileJSON)})
+		
+// 	case "update":
+// 		nfInstanceId := payload["nfProfile"].(map[string]interface{})["nfInstanceId"].(string)
+// 		updatesJSON, _ := json.Marshal(payload["nfProfile"])
+// 		result, err = h.client.InvokeChaincode("UpdateNF", []string{nfInstanceId, string(updatesJSON)})
+		
+// 	case "delete":
+// 		nfInstanceId := payload["nfInstanceId"].(string)
+// 		result, err = h.client.InvokeChaincode("DeleteNF", []string{nfInstanceId})
+		
+// 	default:
+// 		http.Error(w, "Unknown operation", http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	if err != nil {
+// 		http.Error(w, fmt.Sprintf("Chaincode error: %v", err), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	response := map[string]interface{}{
+// 		"success":       true,
+// 		"operation":     operation,
+// 		"transactionId": "tx-" + fmt.Sprintf("%d", r.Context().Value("txTime")),
+// 		"result":        result,
+// 	}
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteStatus(http.StatusOK)
+// 	json.NewEncoder(w).Encode(response)
+// }
+
+// // HandleOAuthToken handles OAuth token generation
+// func (h *HTTPHandlers) HandleOAuthToken(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodPost {
+// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// 		return
+// 	}
+
+// 	body, err := io.ReadAll(r.Body)
+// 	if err != nil {
+// 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+// 		return
+// 	}
+// 	defer r.Body.Close()
+
+// 	// Forward to chaincode
+// 	result, err := h.client.InvokeChaincode("GenerateOAuthToken", []string{string(body)})
+// 	if err != nil {
+// 		errorResponse := map[string]string{
+// 			"error":             "server_error",
+// 			"error_description": err.Error(),
+// 		}
+// 		w.Header().Set("Content-Type", "application/json")
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(errorResponse)
+// 		return
+// 	}
+
+// 	// Parse result and return as OAuth response
+// 	var tokenResponse map[string]interface{}
+// 	err = json.Unmarshal([]byte(result), &tokenResponse)
+// 	if err != nil {
+// 		http.Error(w, "Failed to parse token response", http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusOK)
+// 	json.NewEncoder(w).Encode(tokenResponse)
+// }
+
+// // HandleNFQuery handles NF retrieval queries
+// func (h *HTTPHandlers) HandleNFQuery(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodGet {
+// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// 		return
+// 	}
+
+// 	query := r.URL.Query()
+// 	nfInstanceId := query.Get("nfInstanceId")
+// 	nfType := query.Get("nfType")
+
+// 	var result string
+// 	var err error
+
+// 	if nfInstanceId != "" {
+// 		result, err = h.client.QueryChaincode("RetrieveNF", []string{nfInstanceId})
+// 	} else if nfType != "" {
+// 		result, err = h.client.QueryChaincode("RetrieveNFsByType", []string{nfType})
+// 	} else {
+// 		result, err = h.client.QueryChaincode("RetrieveAllNFs", []string{})
+// 	}
+
+// 	if err != nil {
+// 		http.Error(w, fmt.Sprintf("Query error: %v", err), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusOK)
+// 	w.Write([]byte(result))
+// }
+
+// // HandleTokenValidation handles token validity checks
+// func (h *HTTPHandlers) HandleTokenValidation(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodPost {
+// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// 		return
+// 	}
+
+// 	var payload struct {
+// 		AccessToken string `json:"access_token"`
+// 	}
+
+// 	err := json.NewDecoder(r.Body).Decode(&payload)
+// 	if err != nil {
+// 		http.Error(w, "Invalid request", http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	result, err := h.client.QueryChaincode("CheckTokenValidity", []string{payload.AccessToken})
+// 	if err != nil {
+// 		http.Error(w, fmt.Sprintf("Validation error: %v", err), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusOK)
+// 	w.Write([]byte(result))
+// }
+
+// // HandlePublicKey returns the NRF public key for NFs
+// func (h *HTTPHandlers) HandlePublicKey(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodGet {
+// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// 		return
+// 	}
+
+// 	result, err := h.client.QueryChaincode("GetPublicKey", []string{})
+// 	if err != nil {
+// 		http.Error(w, fmt.Sprintf("Error getting public key: %v", err), http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusOK)
+// 	w.Write([]byte(result))
+// }
