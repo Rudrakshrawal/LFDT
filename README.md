@@ -1,4 +1,7 @@
+
+
 # Decentralized OAuth 2.0 in 5G Core with Hyperledger Fabric
+![GitHub License](https://img.shields.io/github/license/Rudrakshrawal/LFDT)
 
 This repository contains the reference implementation developed under the **LF Decentralized Trust (LFDT) Mentorship Program** for:
 
@@ -612,4 +615,5 @@ This work was carried out under the Linux Foundation Decentralized Trust (LFDT) 
 It serves as a starting point for further research into Zero-Trust, DID-based identity, and Post-Quantum secure OAuth in telecom networks.
 
 Feel free to open issues or pull requests if you extend this work to new 5G stacks, DID registries, or PQC algorithms.
+
 
